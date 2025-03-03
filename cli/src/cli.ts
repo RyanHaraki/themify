@@ -7,7 +7,7 @@ import inquirer from "inquirer";
 import path from "path";
 import { findImagesInPublicFolder, findGlobalsCssPath, updateGlobalsCss } from "./utils/file";
 import { extractColorsFromImage } from "./extractors/colorExtractor";
-import { generateCSSVariables } from "./generators/themeGenerator";
+import { generateTheme } from "./generators/themeGenerator";
 
 // Display banner
 console.log(
@@ -51,7 +51,7 @@ async function main() {
     const colors = await extractColorsFromImage(selectedImage);
 
     // Generate CSS variables from the extracted colors
-    const colorVariables = generateCSSVariables(colors);
+    const colorVariables = generateTheme(colors);
 
     // Update globals.css with the new theme colors
     updateGlobalsCss(cssPath, colorVariables);

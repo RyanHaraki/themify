@@ -5,27 +5,9 @@ import ora from "ora";
 import { extractColors } from "extract-colors";
 import getPixels from "get-pixels";
 import { Color } from "../types";
+import { SUPPORTED_EXTENSIONS } from "../utils/file";
 
 const getPixelsPromise = promisify(getPixels);
-
-// Helper to get MIME type from file extension
-const getMimeType = (ext: string): string => {
-  switch (ext.toLowerCase()) {
-    case ".jpg":
-    case ".jpeg":
-      return "image/jpeg";
-    case ".png":
-      return "image/png";
-    case ".gif":
-      return "image/gif";
-    case ".webp":
-      return "image/webp";
-    case ".ico":
-      return "image/x-icon";
-    default:
-      return "image/png"; // default fallback
-  }
-};
 
 // Extract colors from SVG
 async function extractFromSvg(imagePath: string): Promise<Color[]> {
@@ -87,8 +69,24 @@ async function extractFromSvg(imagePath: string): Promise<Color[]> {
 }
 
 // Extract colors from raster images
-async function extractFromRaster(imagePath: string, ext: string): Promise<Color[]> {
-  const pixels = await getPixelsPromise(imagePath, getMimeType(ext));
+async function extractFromRaster(imagePath: string): Promise<Color[]> {
+  // Get MIME type based on file extension
+  const ext = path.extname(imagePath).toLowerCase();
+  let mimeType: string;
+  
+  switch (ext) {
+    case ".jpg":
+    case ".jpeg":
+      mimeType = "image/jpeg";
+      break;
+    case ".png":
+      mimeType = "image/png";
+      break;
+    default:
+      throw new Error(`Unsupported image format: ${ext}`);
+  }
+
+  const pixels = await getPixelsPromise(imagePath, mimeType);
 
   // Convert pixels to the format expected by extract-colors
   const data = Array.from(pixels.data);
@@ -119,6 +117,12 @@ export async function extractColorsFromImage(imagePath: string): Promise<Color[]
   try {
     const ext = path.extname(imagePath).toLowerCase();
 
+    // Verify the file extension is supported
+    if (!SUPPORTED_EXTENSIONS.includes(ext)) {
+      spinner.fail(`Unsupported image format: ${ext}. Supported formats are: ${SUPPORTED_EXTENSIONS.join(', ')}`);
+      process.exit(1);
+    }
+
     // For SVG files, use a different approach by parsing the file directly
     if (ext === ".svg") {
       spinner.info("SVG detected. Using alternative color extraction method.");
@@ -127,8 +131,8 @@ export async function extractColorsFromImage(imagePath: string): Promise<Color[]
       return colors;
     }
 
-    // For other image types, use get-pixels and extract-colors
-    const colors = await extractFromRaster(imagePath, ext);
+    // For other supported image types (JPG, PNG), use get-pixels and extract-colors
+    const colors = await extractFromRaster(imagePath);
     spinner.succeed(`Successfully extracted ${colors.length} colors from the image.`);
     return colors;
   } catch (error: any) {

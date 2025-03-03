@@ -1,98 +1,88 @@
 import fs from "fs";
 import path from "path";
 import ora from "ora";
-import inquirer from "inquirer";
 
 // Define supported image extensions
-export const SUPPORTED_EXTENSIONS = [
-  ".jpg", ".jpeg", ".png", ".svg", ".ico", ".gif", ".webp",
-];
+export const SUPPORTED_EXTENSIONS = [".jpg", ".jpeg", ".png", ".svg"];
 
 // Define possible globals.css locations
 export const POSSIBLE_CSS_PATHS = [
-  "./globals.css",
-  "./src/app/globals.css",
-  "./app/globals.css",
-  "./styles/globals.css",
+  "src/app/globals.css",
+  "app/globals.css",
+  "styles/globals.css",
+  "src/styles/globals.css",
 ];
 
 export async function findImagesInPublicFolder(): Promise<string[]> {
-  const spinner = ora("Looking for images in the public folder...").start();
-
+  const spinner = ora("Searching for images in the public folder...").start();
+  
   try {
-    // Check if public folder exists
-    if (!fs.existsSync("./public")) {
-      spinner.fail("Public folder not found. Make sure you are in a Next.js project root.");
+    const publicDir = path.join(process.cwd(), "public");
+    
+    // Check if public directory exists
+    if (!fs.existsSync(publicDir)) {
+      spinner.fail("Public directory not found. Make sure you're in a Next.js project root.");
       process.exit(1);
     }
-
-    // Get all files in public folder recursively
-    const getAllFiles = (dirPath: string, arrayOfFiles: string[] = []): string[] => {
-      const files = fs.readdirSync(dirPath);
-
+    
+    // Get all files in the public directory recursively
+    const getAllFiles = (dir: string, fileList: string[] = []): string[] => {
+      const files = fs.readdirSync(dir);
+      
       files.forEach((file) => {
-        const fullPath = path.join(dirPath, file);
-        if (fs.statSync(fullPath).isDirectory()) {
-          arrayOfFiles = getAllFiles(fullPath, arrayOfFiles);
+        const filePath = path.join(dir, file);
+        const stat = fs.statSync(filePath);
+        
+        if (stat.isDirectory()) {
+          getAllFiles(filePath, fileList);
         } else {
           const ext = path.extname(file).toLowerCase();
           if (SUPPORTED_EXTENSIONS.includes(ext)) {
-            arrayOfFiles.push(fullPath);
+            fileList.push(filePath);
           }
         }
       });
-
-      return arrayOfFiles;
+      
+      return fileList;
     };
-
-    const images = getAllFiles("./public");
-
-    if (images.length === 0) {
-      spinner.fail("No images found in the public folder.");
+    
+    const imageFiles = getAllFiles(publicDir);
+    
+    if (imageFiles.length === 0) {
+      spinner.fail("No supported image files found in the public folder.");
       process.exit(1);
     }
-
-    spinner.succeed(`Found ${images.length} images in the public folder.`);
-    return images;
+    
+    spinner.succeed(`Found ${imageFiles.length} images in the public folder.`);
+    return imageFiles;
   } catch (error: any) {
-    spinner.fail(`Error finding images: ${error.message || String(error)}`);
+    spinner.fail(`Error searching for images: ${error.message || String(error)}`);
     process.exit(1);
   }
 }
 
-export async function findGlobalsCssPath(): Promise<string> {
-  const spinner = ora("Looking for globals.css file...").start();
-
-  // Check each possible path
-  for (const cssPath of POSSIBLE_CSS_PATHS) {
-    if (fs.existsSync(cssPath)) {
-      spinner.succeed(`Found globals.css at ${cssPath}`);
-      return cssPath;
+export function findGlobalsCssPath(): string {
+  const spinner = ora("Searching for globals.css file...").start();
+  
+  try {
+    const projectRoot = process.cwd();
+    
+    // Try each possible path
+    for (const cssPath of POSSIBLE_CSS_PATHS) {
+      const fullPath = path.join(projectRoot, cssPath);
+      if (fs.existsSync(fullPath)) {
+        spinner.succeed(`Found globals.css at ${fullPath}`);
+        return fullPath;
+      }
     }
-  }
-
-  spinner.warn("Could not automatically find globals.css");
-
-  // Ask user for the path
-  const { customPath } = await inquirer.prompt([{
-    type: "input",
-    name: "customPath",
-    message: "Please enter the path to your globals.css file:",
-    default: "./src/app/globals.css",
-    validate: (input) => {
-      if (!input.endsWith(".css")) return "Please enter a valid CSS file path";
-      return true;
-    },
-  }]);
-
-  // Verify the custom path exists
-  if (!fs.existsSync(customPath)) {
-    spinner.fail(`The file ${customPath} does not exist.`);
+    
+    // If we get here, we couldn't find the file
+    spinner.fail("Could not find globals.css file. Make sure you're in a Next.js project root.");
+    process.exit(1);
+  } catch (error: any) {
+    spinner.fail(`Error finding globals.css: ${error.message || String(error)}`);
     process.exit(1);
   }
-
-  spinner.succeed(`Using globals.css at ${customPath}`);
-  return customPath;
 }
 
 export function updateGlobalsCss(cssPath: string, colorVariables: Record<string, string>): void {
@@ -114,10 +104,18 @@ export function updateGlobalsCss(cssPath: string, colorVariables: Record<string,
 
     // Update each variable in the CSS content
     Object.entries(colorVariables).forEach(([variable, color]) => {
+      // Escape special characters in the variable name for regex
+      const escapedVariable = variable.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      
       // Use regex to replace the variable value
-      const regex = new RegExp(`(${variable}\\s*:\\s*)([^;]+)(;)`, "g");
-
-      if (regex.test(cssContent)) {
+      const regex = new RegExp(`(${escapedVariable}\\s*:\\s*)([^;]+)(;)`, "g");
+      
+      // Test if the variable exists in the content
+      // We need to create a new RegExp instance because test() modifies the regex's lastIndex
+      const testRegex = new RegExp(`${escapedVariable}\\s*:`, "g");
+      
+      if (testRegex.test(cssContent)) {
+        // Variable exists, replace its value
         cssContent = cssContent.replace(regex, `$1${color}$3`);
       } else {
         // If the variable doesn't exist, we'll add it to the :root section

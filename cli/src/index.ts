@@ -16,15 +16,7 @@ const execPromise = promisify(exec);
 const getPixelsPromise = promisify(getPixels);
 
 // Define supported image extensions
-const SUPPORTED_EXTENSIONS = [
-  ".jpg",
-  ".jpeg",
-  ".png",
-  ".svg",
-  ".ico",
-  ".gif",
-  ".webp",
-];
+const SUPPORTED_EXTENSIONS = [".jpg", ".jpeg", ".png", ".svg"];
 
 // Define possible globals.css locations
 const POSSIBLE_CSS_PATHS = [

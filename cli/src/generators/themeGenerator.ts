@@ -1,214 +1,135 @@
 import { Color } from "../types";
 
 /**
- * WCAG Accessibility Guidelines
- * These constants are based on Web Content Accessibility Guidelines (WCAG)
- * They help ensure text remains readable against different background colors
- */
-const WCAG = {
-  // Minimum contrast ratio for normal text (WCAG AA)
-  MINIMUM_CONTRAST_RATIO: 4.5,
-  // Luminance coefficients based on human perception of color
-  LUMINANCE: {
-    RED: 0.2126,
-    GREEN: 0.7152,
-    BLUE: 0.0722,
-  },
-};
-
-/**
- * Calculates the relative luminance of a color according to WCAG standards
- * This is used to determine contrast between colors for accessibility
- *
- * @param color - The color object containing RGB values
- * @returns The luminance value between 0 (black) and 1 (white)
+ * Calculates the luminance of a color
+ * @param color The color to calculate luminance for
+ * @returns Luminance value between 0 and 1
  */
 function calculateLuminance(color: Color): number {
-  // Step 1: Normalize RGB values to 0-1 range
+  // Convert RGB to relative luminance using the formula
+  // L = 0.2126 * R + 0.7152 * G + 0.0722 * B
   const r = color.red / 255;
   const g = color.green / 255;
   const b = color.blue / 255;
-
-  // Step 2: Apply gamma correction (sRGB color space)
-  // This accounts for how human vision perceives brightness
-  const R = r <= 0.03928 ? r / 12.92 : Math.pow((r + 0.055) / 1.055, 2.4);
-  const G = g <= 0.03928 ? g / 12.92 : Math.pow((g + 0.055) / 1.055, 2.4);
-  const B = b <= 0.03928 ? b / 12.92 : Math.pow((b + 0.055) / 1.055, 2.4);
-
-  // Step 3: Calculate luminance using WCAG coefficients
-  // These coefficients represent how humans perceive the brightness of each color
-  return (
-    WCAG.LUMINANCE.RED * R + WCAG.LUMINANCE.GREEN * G + WCAG.LUMINANCE.BLUE * B
-  );
+  
+  return 0.2126 * r + 0.7152 * g + 0.0722 * b;
 }
 
 /**
- * Calculates the contrast ratio between two colors
- *
- * @param color1Luminance - Luminance of first color
- * @param color2Luminance - Luminance of second color
- * @returns Contrast ratio between 1:1 (no contrast) and 21:1 (max contrast)
+ * Assigns colors to specific roles based on their properties
+ * @param colors Array of colors to assign roles to
+ * @returns Object with color roles assigned
  */
-function calculateContrastRatio(
-  color1Luminance: number,
-  color2Luminance: number
-): number {
-  const lighter = Math.max(color1Luminance, color2Luminance);
-  const darker = Math.min(color1Luminance, color2Luminance);
-
-  // Formula from WCAG 2.0 guidelines
-  return (lighter + 0.05) / (darker + 0.05);
-}
-
-/**
- * Assigns 6 colors to specific theme roles based on luminance
- *
- * @param colors - Array of colors to assign (must contain exactly 6 colors)
- * @returns Object with assigned colors for each theme role
- * @throws Error if not exactly 6 colors are provided
- */
-function assignColors(colors: Color[]) {
-  if (colors.length !== 6) throw new Error("Exactly six colors required");
-
-  // Sort colors by luminance (darkest to lightest)
-  const sorted = [...colors].sort(
-    (a, b) => calculateLuminance(a) - calculateLuminance(b)
-  );
-
+function assignColors(colors: Color[]): Record<string, string> {
+  // We need exactly 6 colors for our theme
+  if (colors.length !== 6) {
+    // If we have fewer than 6 colors, we'll create variations
+    if (colors.length < 6) {
+      // Sort by luminance to get a range from darkest to lightest
+      colors.sort((a, b) => calculateLuminance(a) - calculateLuminance(b));
+      
+      // Create variations to fill in the missing colors
+      while (colors.length < 6) {
+        // Take the color with the most contrast to the last added color
+        const baseColor = colors[0];
+        
+        // Create a variation with adjusted RGB values
+        const variation: Color = {
+          ...baseColor,
+          red: Math.max(0, Math.min(255, baseColor.red + Math.floor(Math.random() * 40) - 20)),
+          green: Math.max(0, Math.min(255, baseColor.green + Math.floor(Math.random() * 40) - 20)),
+          blue: Math.max(0, Math.min(255, baseColor.blue + Math.floor(Math.random() * 40) - 20)),
+        };
+        
+        // Update the hex value based on the new RGB
+        variation.hex = `#${variation.red.toString(16).padStart(2, "0")}${
+          variation.green.toString(16).padStart(2, "0")}${
+          variation.blue.toString(16).padStart(2, "0")}`;
+        
+        colors.push(variation);
+      }
+    } else {
+      // If we have more than 6 colors, select the most representative ones
+      
+      // Sort by area (prominence in the image)
+      colors.sort((a, b) => b.area - a.area);
+      
+      // Take the top 6 colors by area
+      colors = colors.slice(0, 6);
+    }
+  }
+  
+  // Sort colors by luminance for role assignment
+  colors.sort((a, b) => calculateLuminance(a) - calculateLuminance(b));
+  
+  // Assign roles based on position in the sorted array
   return {
-    background: sorted[0], // Darkest color for background
-    foreground: sorted[5], // Lightest color for foreground (text)
-    primary: sorted[4], // High contrast with background
-    secondary: sorted[3], // Supporting contrast color
-    accent: sorted[2], // A pop of color
-    muted: sorted[1], // Softest color for subtle elements
+    "--background": colors[0].hex, // Darkest color for background
+    "--foreground": colors[5].hex, // Lightest color for foreground text
+    "--primary": colors[3].hex,    // Mid-bright color for primary elements
+    "--secondary": colors[2].hex,  // Mid-dark color for secondary elements
+    "--accent": colors[4].hex,     // Bright but not brightest for accent
+    "--muted": colors[1].hex,      // Dark but not darkest for muted elements
   };
 }
 
 /**
- * Generates CSS variables for a theme based on extracted colors
- *
- * @param colors - Array of colors extracted from an image
- * @returns Object mapping CSS variable names to color values
- * @throws Error if no colors are provided
+ * Generates a theme from extracted colors
+ * @param colors Array of extracted colors
+ * @returns Object with CSS variable names and their color values
  */
-export function generateCSSVariables(colors: Color[]): Record<string, string> {
+export function generateTheme(colors: Color[]): Record<string, string> {
   // Validate input
   if (colors.length === 0) {
     throw new Error("No colors provided to generate theme");
   }
-
-  // Step 1: Select the 6 most representative colors
-  // If we have more than 6 colors, select them based on area and saturation
-  let selectedColors: Color[] = [];
-
-  if (colors.length <= 6) {
-    // If we have 6 or fewer colors, use all of them
-    selectedColors = [...colors];
-  } else {
-    // Sort by area (most dominant colors in the image)
-    const byArea = [...colors].sort((a, b) => b.area - a.area);
-
-    // Take the 3 most dominant colors
-    selectedColors = byArea.slice(0, 3);
-
-    // Add 3 more colors prioritizing saturation variety
-    const remainingColors = byArea.slice(3);
-    const bySaturation = remainingColors.sort(
-      (a, b) => b.saturation - a.saturation
-    );
-
-    // Add the most saturated color
-    selectedColors.push(bySaturation[0]);
-
-    // Add a medium saturated color
-    const midIndex = Math.floor(bySaturation.length / 2);
-    if (midIndex < bySaturation.length) {
-      selectedColors.push(bySaturation[midIndex]);
-    }
-
-    // Add the least saturated color
-    const lowSatIndex = bySaturation.length - 1;
-    if (lowSatIndex > midIndex && lowSatIndex < bySaturation.length) {
-      selectedColors.push(bySaturation[lowSatIndex]);
-    }
-  }
-
-  // Ensure we have exactly 6 colors
-  while (selectedColors.length < 6) {
-    // If we don't have enough colors, duplicate the last one with slight variations
-    const lastColor = { ...selectedColors[selectedColors.length - 1] };
-
-    // Slightly modify the color to create variation
-    lastColor.red = Math.max(
-      0,
-      Math.min(255, lastColor.red + Math.floor(Math.random() * 40) - 20)
-    );
-    lastColor.green = Math.max(
-      0,
-      Math.min(255, lastColor.green + Math.floor(Math.random() * 40) - 20)
-    );
-    lastColor.blue = Math.max(
-      0,
-      Math.min(255, lastColor.blue + Math.floor(Math.random() * 40) - 20)
-    );
-
-    // Update hex value to match the new RGB values
-    lastColor.hex = `#${lastColor.red
-      .toString(16)
-      .padStart(2, "0")}${lastColor.green
-      .toString(16)
-      .padStart(2, "0")}${lastColor.blue.toString(16).padStart(2, "0")}`;
-
-    // Add the new color
-    selectedColors.push(lastColor);
-  }
-
-  // If we have more than 6 colors, trim to exactly 6
-  if (selectedColors.length > 6) {
-    selectedColors = selectedColors.slice(0, 6);
-  }
-
-  // Step 2: Assign colors to theme roles
-  const assignedColors = assignColors(selectedColors);
-
-  // Step 3: Create and return the theme variable mapping
+  
+  // Sort colors by area (prominence in the image)
+  colors.sort((a, b) => b.area - a.area);
+  
+  // Get the most prominent colors (up to 6)
+  const prominentColors = colors.slice(0, Math.min(colors.length, 6));
+  
+  // Assign colors to specific roles
+  const assignedColors = assignColors(prominentColors);
+  
+  // Create and return the theme variable mapping
   return {
     // Base colors
-    "--background": assignedColors.background.hex,
-    "--foreground": assignedColors.foreground.hex,
+    "--background": assignedColors["--background"],
+    "--foreground": assignedColors["--foreground"],
 
     // Card component colors
-    "--card": assignedColors.background.hex,
-    "--card-foreground": assignedColors.foreground.hex,
+    "--card": assignedColors["--background"],
+    "--card-foreground": assignedColors["--foreground"],
 
     // Popover/dropdown colors
-    "--popover": assignedColors.background.hex,
-    "--popover-foreground": assignedColors.foreground.hex,
+    "--popover": assignedColors["--background"],
+    "--popover-foreground": assignedColors["--foreground"],
 
     // Primary action colors (buttons, links, etc.)
-    "--primary": assignedColors.primary.hex,
-    "--primary-foreground": assignedColors.foreground.hex,
+    "--primary": assignedColors["--primary"],
+    "--primary-foreground": assignedColors["--foreground"],
 
     // Secondary action colors
-    "--secondary": assignedColors.secondary.hex,
-    "--secondary-foreground": assignedColors.foreground.hex,
+    "--secondary": assignedColors["--secondary"],
+    "--secondary-foreground": assignedColors["--foreground"],
 
     // Muted/subtle UI elements
-    "--muted": assignedColors.muted.hex,
-    "--muted-foreground": assignedColors.primary.hex,
+    "--muted": assignedColors["--muted"],
+    "--muted-foreground": assignedColors["--primary"],
 
     // Accent colors
-    "--accent": assignedColors.accent.hex,
-    "--accent-foreground": assignedColors.foreground.hex,
+    "--accent": assignedColors["--accent"],
+    "--accent-foreground": assignedColors["--foreground"],
 
     // Destructive action colors (delete, warning, etc.)
     "--destructive": "#ff0000", // Standard red for destructive actions
-    "--destructive-foreground": "#ffffff", // White text for readability
+    "--destructive-foreground": "#ffffff", // White text on destructive background
 
     // UI element colors
-    "--border": assignedColors.muted.hex,
-    "--input": assignedColors.muted.hex,
-    "--ring": assignedColors.primary.hex,
+    "--border": assignedColors["--muted"],
+    "--input": assignedColors["--muted"],
+    "--ring": assignedColors["--primary"],
   };
 }
