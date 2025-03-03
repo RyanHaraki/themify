@@ -306,6 +306,9 @@ export function generateTheme(colors: Color[]): Record<string, string> {
       saturation: 10,
       lightness: isDarkTheme ? 10 : -10,
     }),
+
+    // Border radius - random values
+    "--radius": `${(Math.random() * 0.5 + 0.3).toFixed(3)}rem`,
   };
 }
 
@@ -403,5 +406,8 @@ function generateThemeFromSingleColor(color: Color): Record<string, string> {
       saturation: 10,
       lightness: isDarkTheme ? 10 : -10,
     }),
+
+    // Border radius - random values
+    "--radius": `${(Math.random() * 0.5 + 0.3).toFixed(3)}rem`,
   };
 }
