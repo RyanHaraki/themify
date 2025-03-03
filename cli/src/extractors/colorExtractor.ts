@@ -77,6 +77,7 @@ export async function extractColorsFromImage(
     spinner.succeed(
       `Successfully extracted ${colors.length} colors from the image.`
     );
+    console.log( colors.map(c => c.hex))
 
     return colors;
   } catch (error: any) {
