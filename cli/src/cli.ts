@@ -39,7 +39,7 @@ async function main() {
     ]);
 
     // Find globals.css path
-    const cssPath = findGlobalsCssPath();
+    const cssPath = await findGlobalsCssPath();
 
     // Extract colors from the selected image
     const colors = await extractColorsFromImage(selectedImage);

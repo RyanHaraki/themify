@@ -51,7 +51,7 @@ export async function findImagesInPublicFolder(): Promise<string[]> {
   }
 }
 
-export function findGlobalsCssPath(): string {
+export async function findGlobalsCssPath(): Promise<string> {
   const spinner = ora('Searching for globals.css file...').start();
 
   try {
@@ -60,9 +60,14 @@ export function findGlobalsCssPath(): string {
     // Try each possible path
     for (const cssPath of POSSIBLE_CSS_PATHS) {
       const fullPath = path.join(projectRoot, cssPath);
-      if (fs.existsSync(fullPath)) {
+      try {
+        // Use async file stat to check if file exists and is accessible
+        await fs.promises.access(fullPath, fs.constants.R_OK | fs.constants.W_OK);
         spinner.succeed(`Found globals.css at ${fullPath}`);
         return fullPath;
+      } catch (err) {
+        // File doesn't exist or isn't accessible, try next path
+        continue;
       }
     }
 
@@ -79,8 +84,8 @@ export async function updateGlobalsCss(cssPath: string, colorVariables: Record<s
   const spinner = ora(`Updating ${cssPath} with new theme colors...`).start();
 
   try {
-    // Use promises for file operations
-    let cssContent = await fs.promises.readFile(cssPath, 'utf8');
+    // Use promises for file operations with explicit encoding
+    let cssContent = await fs.promises.readFile(cssPath, { encoding: 'utf8', flag: 'r' });
 
     // Check if the file contains a :root section with CSS variables
     if (!cssContent.includes(':root')) {
@@ -90,36 +95,67 @@ export async function updateGlobalsCss(cssPath: string, colorVariables: Record<s
 
     // Create a backup of the original file
     const backupPath = `${cssPath}.backup`;
-    await fs.promises.writeFile(backupPath, cssContent);
+    await fs.promises.writeFile(backupPath, cssContent, { encoding: 'utf8', flag: 'w' });
     spinner.info(`Created backup of original file at ${backupPath}`);
 
-    // Update each variable in the CSS content
+    // Create a new CSS content string with updated variables
+    let updatedCssContent = cssContent;
+    
+    // First, find the :root section
+    const rootMatch = updatedCssContent.match(/(:root\s*{)([^}]*)(})/s);
+    
+    if (!rootMatch) {
+      spinner.fail('Could not parse the :root section in the CSS file.');
+      process.exit(1);
+    }
+    
+    // Extract the current root content
+    const [fullMatch, rootStart, rootContent, rootEnd] = rootMatch;
+    
+    // Process each variable
+    let newRootContent = rootContent;
+    
     Object.entries(colorVariables).forEach(([variable, color]) => {
       // Escape special characters in the variable name for regex
       const escapedVariable = variable.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-
-      // Use regex to replace the variable value
-      const regex = new RegExp(`(${escapedVariable}\\s*:\\s*)([^;]+)(;)`, 'g');
-
-      // Test if the variable exists in the content
-      // We need to create a new RegExp instance because test() modifies the regex's lastIndex
-      const testRegex = new RegExp(`${escapedVariable}\\s*:`, 'g');
-
-      if (testRegex.test(cssContent)) {
-        // Variable exists, replace its value
-        cssContent = cssContent.replace(regex, `$1${color}$3`);
+      
+      // Check if variable exists in the root content
+      const varRegex = new RegExp(`${escapedVariable}\\s*:\\s*[^;]+;`, 'g');
+      
+      if (varRegex.test(newRootContent)) {
+        // Replace existing variable
+        newRootContent = newRootContent.replace(
+          varRegex, 
+          `${variable}: ${color};`
+        );
       } else {
-        // If the variable doesn't exist, we'll add it to the :root section
-        const rootRegex = /(:root\s*{[^}]*)(})/;
-        cssContent = cssContent.replace(rootRegex, `$1  ${variable}: ${color};\n$2`);
+        // Add new variable
+        newRootContent += `\n  ${variable}: ${color};`;
       }
     });
+    
+    // Replace the root section in the CSS content
+    updatedCssContent = updatedCssContent.replace(
+      /(:root\s*{)([^}]*)(})/s,
+      `$1${newRootContent}$3`
+    );
 
-    // Write the updated content back to the file and ensure it completes
-    await fs.promises.writeFile(cssPath, cssContent);
+    // Write the updated content back to the file with explicit options
+    await fs.promises.writeFile(cssPath, updatedCssContent, { 
+      encoding: 'utf8', 
+      flag: 'w' 
+    });
 
-    // Add a small delay to ensure file system has completed the write operation
-    await new Promise(resolve => setTimeout(resolve, 100));
+    // Force a file system sync to ensure changes are written to disk
+    const fd = await fs.promises.open(cssPath, 'r');
+    try {
+      await fd.sync();
+    } finally {
+      await fd.close();
+    }
+
+    // Add a longer delay to ensure file system has completed the write operation
+    await new Promise(resolve => setTimeout(resolve, 500));
 
     spinner.succeed(`Successfully updated ${cssPath} with the new theme colors.`);
   } catch (error: any) {
