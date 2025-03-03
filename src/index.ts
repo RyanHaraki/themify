@@ -11,20 +11,10 @@ import { exec } from "child_process";
 import ora from "ora";
 import { extractColors } from "extract-colors";
 import getPixels from "get-pixels";
+import { SUPPORTED_EXTENSIONS, POSSIBLE_CSS_PATHS } from "./utils/constants";
 
 const execPromise = promisify(exec);
 const getPixelsPromise = promisify(getPixels);
-
-// Define supported image extensions
-const SUPPORTED_EXTENSIONS = [".jpg", ".jpeg", ".png", ".svg"];
-
-// Define possible globals.css locations
-const POSSIBLE_CSS_PATHS = [
-  "./globals.css",
-  "./src/app/globals.css",
-  "./app/globals.css",
-  "./styles/globals.css",
-];
 
 // Display banner
 console.log(

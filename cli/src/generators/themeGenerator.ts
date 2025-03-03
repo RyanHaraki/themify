@@ -1,20 +1,5 @@
 import { Color } from "../types";
 
-/**
- * Calculates the luminance of a color
- * @param color The color to calculate luminance for
- * @returns Luminance value between 0 and 1
- */
-function calculateLuminance(color: Color): number {
-  // Convert RGB to relative luminance using the formula
-  // L = 0.2126 * R + 0.7152 * G + 0.0722 * B
-  const r = color.red / 255;
-  const g = color.green / 255;
-  const b = color.blue / 255;
-
-  return 0.2126 * r + 0.7152 * g + 0.0722 * b;
-}
-
 function adjustLightness(color: Color, percentage: number): string {
   const newLightness = Math.min(
     1,
@@ -26,8 +11,6 @@ function adjustLightness(color: Color, percentage: number): string {
 }
 
 function assignColors(colors: Color[]) {
-  if (colors.length !== 6) throw new Error("Exactly six colors required");
-
   // Function to calculate relative luminance for contrast checking
   function luminance(color: Color) {
     const rgb = [color.red, color.green, color.blue].map((c) => c / 255);
@@ -36,6 +19,33 @@ function assignColors(colors: Color[]) {
         lum + (c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4),
       0
     );
+  }
+
+  // If we don't have 6 colors, create monochromatic variations
+  if (colors.length < 6) {
+    // Sort by area to get the most prominent color
+    colors.sort((a, b) => b.area - a.area);
+    const baseColor = colors[0];
+
+    // Create monochromatic variations until we have 6 colors
+    const variations = [
+      { ...baseColor }, // Original color
+      { ...baseColor, lightness: Math.max(0.1, baseColor.lightness - 0.3) }, // Darker
+      { ...baseColor, lightness: Math.min(0.9, baseColor.lightness + 0.3) }, // Lighter
+      { ...baseColor, lightness: Math.max(0.05, baseColor.lightness - 0.5) }, // Much darker
+      { ...baseColor, lightness: Math.min(0.95, baseColor.lightness + 0.5) }, // Much lighter
+      { ...baseColor, saturation: Math.max(0.1, baseColor.saturation - 0.2) }, // Less saturated
+    ];
+
+    // Take as many variations as needed
+    colors = variations.slice(0, 6);
+  } else if (colors.length > 6) {
+    // If we have more than 6 colors, select the most representative ones
+    // Sort by area (prominence in the image)
+    colors.sort((a, b) => b.area - a.area);
+
+    // Take the top 6 colors by area
+    colors = colors.slice(0, 6);
   }
 
   // Sort colors by luminance
@@ -63,6 +73,7 @@ function assignColors(colors: Color[]) {
     "--ring": adjustLightness(sorted[4], 10),
   };
 }
+
 /**
  * Generates a theme from extracted colors
  * @param colors Array of extracted colors

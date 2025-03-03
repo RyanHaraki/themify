@@ -1,38 +1,30 @@
 import fs from "fs";
 import path from "path";
 import ora from "ora";
-
-// Define supported image extensions
-export const SUPPORTED_EXTENSIONS = [".jpg", ".jpeg", ".png", ".svg"];
-
-// Define possible globals.css locations
-export const POSSIBLE_CSS_PATHS = [
-  "src/app/globals.css",
-  "app/globals.css",
-  "styles/globals.css",
-  "src/styles/globals.css",
-];
+import { SUPPORTED_EXTENSIONS, POSSIBLE_CSS_PATHS } from "./constants";
 
 export async function findImagesInPublicFolder(): Promise<string[]> {
   const spinner = ora("Searching for images in the public folder...").start();
-  
+
   try {
     const publicDir = path.join(process.cwd(), "public");
-    
+
     // Check if public directory exists
     if (!fs.existsSync(publicDir)) {
-      spinner.fail("Public directory not found. Make sure you're in a Next.js project root.");
+      spinner.fail(
+        "Public directory not found. Make sure you're in a Next.js project root."
+      );
       process.exit(1);
     }
-    
+
     // Get all files in the public directory recursively
     const getAllFiles = (dir: string, fileList: string[] = []): string[] => {
       const files = fs.readdirSync(dir);
-      
+
       files.forEach((file) => {
         const filePath = path.join(dir, file);
         const stat = fs.statSync(filePath);
-        
+
         if (stat.isDirectory()) {
           getAllFiles(filePath, fileList);
         } else {
@@ -42,31 +34,33 @@ export async function findImagesInPublicFolder(): Promise<string[]> {
           }
         }
       });
-      
+
       return fileList;
     };
-    
+
     const imageFiles = getAllFiles(publicDir);
-    
+
     if (imageFiles.length === 0) {
       spinner.fail("No supported image files found in the public folder.");
       process.exit(1);
     }
-    
+
     spinner.succeed(`Found ${imageFiles.length} images in the public folder.`);
     return imageFiles;
   } catch (error: any) {
-    spinner.fail(`Error searching for images: ${error.message || String(error)}`);
+    spinner.fail(
+      `Error searching for images: ${error.message || String(error)}`
+    );
     process.exit(1);
   }
 }
 
 export function findGlobalsCssPath(): string {
   const spinner = ora("Searching for globals.css file...").start();
-  
+
   try {
     const projectRoot = process.cwd();
-    
+
     // Try each possible path
     for (const cssPath of POSSIBLE_CSS_PATHS) {
       const fullPath = path.join(projectRoot, cssPath);
@@ -75,17 +69,24 @@ export function findGlobalsCssPath(): string {
         return fullPath;
       }
     }
-    
+
     // If we get here, we couldn't find the file
-    spinner.fail("Could not find globals.css file. Make sure you're in a Next.js project root.");
+    spinner.fail(
+      "Could not find globals.css file. Make sure you're in a Next.js project root."
+    );
     process.exit(1);
   } catch (error: any) {
-    spinner.fail(`Error finding globals.css: ${error.message || String(error)}`);
+    spinner.fail(
+      `Error finding globals.css: ${error.message || String(error)}`
+    );
     process.exit(1);
   }
 }
 
-export function updateGlobalsCss(cssPath: string, colorVariables: Record<string, string>): void {
+export function updateGlobalsCss(
+  cssPath: string,
+  colorVariables: Record<string, string>
+): void {
   const spinner = ora(`Updating ${cssPath} with new theme colors...`).start();
 
   try {
@@ -93,7 +94,9 @@ export function updateGlobalsCss(cssPath: string, colorVariables: Record<string,
 
     // Check if the file contains a :root section with CSS variables
     if (!cssContent.includes(":root")) {
-      spinner.fail("The globals.css file does not contain a :root section with CSS variables.");
+      spinner.fail(
+        "The globals.css file does not contain a :root section with CSS variables."
+      );
       process.exit(1);
     }
 
@@ -105,30 +108,37 @@ export function updateGlobalsCss(cssPath: string, colorVariables: Record<string,
     // Update each variable in the CSS content
     Object.entries(colorVariables).forEach(([variable, color]) => {
       // Escape special characters in the variable name for regex
-      const escapedVariable = variable.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-      
+      const escapedVariable = variable.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
       // Use regex to replace the variable value
       const regex = new RegExp(`(${escapedVariable}\\s*:\\s*)([^;]+)(;)`, "g");
-      
+
       // Test if the variable exists in the content
       // We need to create a new RegExp instance because test() modifies the regex's lastIndex
       const testRegex = new RegExp(`${escapedVariable}\\s*:`, "g");
-      
+
       if (testRegex.test(cssContent)) {
         // Variable exists, replace its value
         cssContent = cssContent.replace(regex, `$1${color}$3`);
       } else {
         // If the variable doesn't exist, we'll add it to the :root section
         const rootRegex = /(:root\s*{[^}]*)(})/;
-        cssContent = cssContent.replace(rootRegex, `$1  ${variable}: ${color};\n$2`);
+        cssContent = cssContent.replace(
+          rootRegex,
+          `$1  ${variable}: ${color};\n$2`
+        );
       }
     });
 
     // Write the updated content back to the file
     fs.writeFileSync(cssPath, cssContent);
-    spinner.succeed(`Successfully updated ${cssPath} with the new theme colors.`);
+    spinner.succeed(
+      `Successfully updated ${cssPath} with the new theme colors.`
+    );
   } catch (error: any) {
-    spinner.fail(`Error updating globals.css: ${error.message || String(error)}`);
+    spinner.fail(
+      `Error updating globals.css: ${error.message || String(error)}`
+    );
     process.exit(1);
   }
 }
