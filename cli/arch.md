@@ -16,10 +16,10 @@ graph TD
     cli -->|imports| file
     cli -->|imports| colorExtractor
     cli -->|imports| themeGenerator
-    
+
     colorExtractor -->|imports| types
     themeGenerator -->|imports| types
-    
+
     %% Connections - Exports
     index -->|exports| file
     index -->|exports| colorExtractor
@@ -51,7 +51,7 @@ graph TD
     classDef module fill:#f9f,stroke:#333,stroke-width:2px;
     classDef flow fill:#bbf,stroke:#333,stroke-width:1px;
     classDef desc fill:#dfd,stroke:#333,stroke-width:1px;
-    
+
     class index,cli,types,file,colorExtractor,themeGenerator module;
     class findImages,selectImage,findCSS,extractColors,generateVars,updateCSS flow;
     class fileDesc,extractorDesc,generatorDesc,typesDesc,cliDesc,indexDesc desc;
@@ -60,29 +60,35 @@ graph TD
 ## Module Responsibilities
 
 ### index.ts
+
 - Acts as a central export point for all modules
 - Makes it easy to import functionality from a single location
 
 ### cli.ts
+
 - Entry point for the CLI application
 - Orchestrates the overall flow of the application
 - Handles user interaction and command-line interface
 
 ### types.ts
+
 - Contains shared type definitions
 - Defines the Color interface used across multiple modules
 
 ### utils/file.ts
+
 - Handles file system operations
 - Finds images in the project's public folder
 - Locates and updates the globals.css file
 
 ### extractors/colorExtractor.ts
+
 - Extracts colors from different image formats
 - Handles SVG and raster images differently
 - Uses extract-colors and get-pixels libraries
 
 ### generators/themeGenerator.ts
+
 - Generates CSS variables from extracted colors
 - Applies design principles for color selection
 - Ensures proper contrast between foreground and background colors

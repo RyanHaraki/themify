@@ -26,6 +26,7 @@ npx themify
 ```
 
 The tool will:
+
 1. Look for images in your public folder
 2. Ask you to select an image to base your theme on
 3. Extract colors from the selected image
