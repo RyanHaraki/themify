@@ -148,6 +148,7 @@ export async function extractColorsFromImage(
     spinner.succeed(
       `Successfully extracted ${colors.length} colors from the image.`
     );
+
     return colors;
   } catch (error: any) {
     spinner.fail(`Error extracting colors: ${error.message || String(error)}`);

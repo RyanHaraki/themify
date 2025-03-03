@@ -51,6 +51,16 @@ function assignColors(colors: Color[]) {
   // Sort colors by luminance
   const sorted = [...colors].sort((a, b) => luminance(a) - luminance(b));
 
+  // Validate contrast
+  let minLightness = sorted[0].lightness;
+  let maxLightness = sorted[5].lightness;
+  if (maxLightness - minLightness < 0.3) {
+    console.warn(
+      "The provided colors do not have enough contrast for a visually cohesive theme."
+    );
+    process.exit(1);
+  }
+
   return {
     "--background": adjustLightness(sorted[0], -5),
     "--foreground": adjustLightness(sorted[5], 5),
