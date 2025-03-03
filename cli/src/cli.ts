@@ -5,7 +5,11 @@ import chalk from "chalk";
 import figlet from "figlet";
 import inquirer from "inquirer";
 import path from "path";
-import { findImagesInPublicFolder, findGlobalsCssPath, updateGlobalsCss } from "./utils/file";
+import {
+  findImagesInPublicFolder,
+  findGlobalsCssPath,
+  updateGlobalsCss,
+} from "./utils/file";
 import { extractColorsFromImage } from "./extractors/colorExtractor";
 import { generateTheme } from "./generators/themeGenerator";
 
@@ -45,7 +49,7 @@ async function main() {
     ]);
 
     // Find globals.css path
-    const cssPath = await findGlobalsCssPath();
+    const cssPath = findGlobalsCssPath();
 
     // Extract colors from the selected image
     const colors = await extractColorsFromImage(selectedImage);
@@ -54,7 +58,7 @@ async function main() {
     const colorVariables = generateTheme(colors);
 
     // Update globals.css with the new theme colors
-    updateGlobalsCss(cssPath, colorVariables);
+    await updateGlobalsCss(cssPath, colorVariables);
 
     console.log(chalk.green("\n✨ Theme updated successfully! ✨"));
     console.log(chalk.cyan("The following colors were applied:"));

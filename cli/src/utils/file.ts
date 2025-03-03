@@ -83,14 +83,15 @@ export function findGlobalsCssPath(): string {
   }
 }
 
-export function updateGlobalsCss(
+export async function updateGlobalsCss(
   cssPath: string,
   colorVariables: Record<string, string>
-): void {
+): Promise<void> {
   const spinner = ora(`Updating ${cssPath} with new theme colors...`).start();
 
   try {
-    let cssContent = fs.readFileSync(cssPath, "utf8");
+    // Use promises for file operations
+    let cssContent = await fs.promises.readFile(cssPath, "utf8");
 
     // Check if the file contains a :root section with CSS variables
     if (!cssContent.includes(":root")) {
@@ -102,7 +103,7 @@ export function updateGlobalsCss(
 
     // Create a backup of the original file
     const backupPath = `${cssPath}.backup`;
-    fs.writeFileSync(backupPath, cssContent);
+    await fs.promises.writeFile(backupPath, cssContent);
     spinner.info(`Created backup of original file at ${backupPath}`);
 
     // Update each variable in the CSS content
@@ -130,8 +131,12 @@ export function updateGlobalsCss(
       }
     });
 
-    // Write the updated content back to the file
-    fs.writeFileSync(cssPath, cssContent);
+    // Write the updated content back to the file and ensure it completes
+    await fs.promises.writeFile(cssPath, cssContent);
+
+    // Add a small delay to ensure file system has completed the write operation
+    await new Promise((resolve) => setTimeout(resolve, 100));
+
     spinner.succeed(
       `Successfully updated ${cssPath} with the new theme colors.`
     );
